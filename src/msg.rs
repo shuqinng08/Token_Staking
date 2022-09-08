@@ -1,9 +1,7 @@
 
-use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::state::{ SaleInfo};
-use cosmwasm_std::{Decimal, Timestamp, Uint128};
+use cosmwasm_std::{ Timestamp, Uint128};
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -30,5 +28,9 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    GetStateInfo{}
+    GetStateInfo{},
+    GetUserInfo{ address:String},
+    GetSaleInfo{},
+    GetClaimableAmount{ address:String },
+    GetClaimableTime{ address:String }
 }

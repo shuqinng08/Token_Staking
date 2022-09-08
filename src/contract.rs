@@ -261,14 +261,17 @@ fn execute_claim_token(
     }  else{
         match  user_info {
             Some(user_info) => {
-                let expect_step = (crr_time - state.claim_start)/state.vesting_step_period + 2;
+                let mut expect_step = (crr_time - state.claim_start)/state.vesting_step_period + 2;
+                if expect_step > 7 {
+                    expect_step = 7;
+                }
                 if user_info.vesting_step == expect_step{
                     return Err(ContractError::AlreadyClaimedForCurrentStep {  } )
                 }
-                else{{
+                else{
                     if user_info.vesting_step == 0{
                         let token_amount_to_send = first_portion * user_info.total_claim_amount +  Uint128::from((expect_step-1) as u128) * user_info.total_claim_amount * default_portion;
-                    
+
                         user_info_update(
                             deps, 
                             sender.clone(), 
@@ -292,7 +295,7 @@ fn execute_claim_token(
                             &mut messages
                         )?;
                     }
-                }}
+                }
             },  
             None => {
                 return Err(ContractError::NotInPresale {  })
@@ -375,11 +378,9 @@ fn user_info_update(
                         
     let transfer_msg = WasmMsg::Execute { 
         contract_addr: state.token_address, 
-        msg: to_binary(&Cw20ExecuteMsg::Transfer{
-            recipient: sender.clone(),
-            amount: token_amount_to_send
-        })?, 
-        funds: vec![] };
+        msg: to_binary(&Cw20ExecuteMsg::Transfer { recipient: sender.clone(), amount: token_amount_to_send})?, 
+        funds: vec![] 
+    };
     
     messages.push(CosmosMsg::Wasm(transfer_msg));
 
