@@ -13,7 +13,7 @@ fn setup_contract(deps: DepsMut,env: Env){
    let instantiate_msg = InstantiateMsg {
         admin: "admin".to_string(),
         token_address: "token_address".to_string(),
-        total_supply: Uint128::new(100000),
+        total_supply: Uint128::new(10000),
         presale_start: env.block.time.seconds()+300,
         presale_period: 100,
         vesting_step_period: 200,
@@ -101,6 +101,18 @@ fn test_buy(){
     let user_info = query_user_info(deps.as_ref(), "user2".to_string()).unwrap();
     println!("user2 information {:?}",user_info);
 
+    env.block.time = env.block.time.plus_seconds(300);
+
+    let info = mock_info("admin", &[]);
+    let msg = ExecuteMsg::WithdrawTokenByAdmin {  };
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+
+    assert_eq!(res.messages.len() , 1);
+    assert_eq!(res.messages[0].msg, CosmosMsg::Wasm(WasmMsg::Execute{
+        contract_addr:"token_address".to_string(),
+        msg:to_binary(&Cw20ExecuteMsg::Transfer{recipient:"admin".to_string(),amount:Uint128::new(3750)}).unwrap(), 
+        funds: vec![]})
+    );
 }
 
 #[test] 

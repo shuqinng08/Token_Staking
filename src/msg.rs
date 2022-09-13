@@ -25,7 +25,8 @@ pub enum ExecuteMsg {
     BuyToken{},
     ClaimToken{},
     ChangeAdmin{ address:String },
-    UpdateConfig{ state: State} 
+    UpdateConfig{ state: State},
+    WithdrawTokenByAdmin {} 
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

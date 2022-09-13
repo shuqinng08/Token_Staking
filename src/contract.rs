@@ -95,6 +95,12 @@ pub fn execute(
             env,
             info,
             state
+        ),
+        ExecuteMsg::WithdrawTokenByAdmin {              
+        } => execute_withdraw_token_by_admin(
+            deps,
+            env,
+            info,
         )
  }
 }
@@ -357,6 +363,37 @@ fn execute_update_config(
      Ok(Response::new()
         .add_attribute("action", "update configuration"))
 }
+
+
+fn execute_withdraw_token_by_admin(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+     authcheck(deps.as_ref(), &info)?;
+    
+    let state = CONFIG.load(deps.storage)?;
+    let sale_info = SALEINFO.load(deps.storage)?;
+    let crr_time = env.block.time.seconds();
+    let presale_end = state.presale_start + state.presale_period;
+
+    if crr_time < presale_end{
+        return Err(ContractError::PresaleNotEnded {  })
+    }
+
+    let cw20_transfer_msg = WasmMsg::Execute { 
+        contract_addr: "token_address".to_string(), 
+        msg: to_binary(&Cw20ExecuteMsg::Transfer { recipient: state.admin, amount: state.total_supply - sale_info.token_sold_amount })?, 
+        funds: vec![] 
+    };
+
+    let msg:CosmosMsg = CosmosMsg::Wasm(cw20_transfer_msg);
+
+    Ok(Response::new()
+        .add_attribute("action", "withdraw token by admin")
+        .add_message(msg))
+}
+
 
 
 
