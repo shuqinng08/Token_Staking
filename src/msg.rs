@@ -1,7 +1,9 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{ Timestamp, Uint128};
+use cosmwasm_std::Uint128;
+
+use crate::state::{UserInfo, State};
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -22,7 +24,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     BuyToken{},
     ClaimToken{},
-    ChangeAdmin{ address:String } 
+    ChangeAdmin{ address:String },
+    UpdateConfig{ state: State} 
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -32,5 +35,24 @@ pub enum QueryMsg {
     GetUserInfo{ address:String},
     GetSaleInfo{},
     GetClaimableAmount{ address:String },
-    GetClaimableTime{ address:String }
+    GetClaimableTime{ address:String },
+    GetUserInfos{ start_after: Option<String>, limit:Option<u32>}
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UserInfosResponse{
+  pub user_info: Vec<UserInfo>
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UserInfoResponse{
+ pub user_info: UserInfo
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TimeInfo{
+ pub crr_time: u64,
+ pub claimable_time: u64
 }

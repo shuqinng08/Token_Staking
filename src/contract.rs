@@ -1,15 +1,15 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,from_binary,
-    StdResult, Uint128,CosmosMsg,WasmMsg,Decimal,BankMsg,Storage, Timestamp
+    entry_point, to_binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, Uint128,CosmosMsg,WasmMsg,Decimal,BankMsg,
 };
 
 use cw2::set_contract_version;
-use cw20::{ Cw20ExecuteMsg,Cw20ReceiveMsg};
+use cw20::{ Cw20ExecuteMsg};
 
-use crate::error::{ContractError};
+use crate::error::ContractError;
 use crate::msg::{ ExecuteMsg, InstantiateMsg};
 use crate::state::{
-    State,CONFIG,SALEINFO, SaleInfo, USERINFO, UserInfo, COININFO
+    State,CONFIG,SALEINFO, SaleInfo,  UserInfo,  user_info_key,  user_info_storage
 };
 
 const CONTRACT_NAME: &str = "Hope_Presale";
@@ -55,9 +55,7 @@ pub fn instantiate(
         earned_atom: Uint128::zero(),
         earned_juno: Uint128::zero()
     })?;
-//    COININFO.save(deps.storage, JUNO, &true)?;
-//    COININFO.save(deps.storage, ATOM, &true)?;
-    
+
     Ok(Response::new()
         .add_attribute("action", "instantiate"))
 }
@@ -89,6 +87,14 @@ pub fn execute(
             deps,
             env,
             info
+        ),
+        ExecuteMsg::UpdateConfig { 
+            state 
+        } => execute_update_config(
+            deps,
+            env,
+            info,
+            state
         )
  }
 }
@@ -117,6 +123,8 @@ fn execute_buy_token(
 
     let  message : CosmosMsg;
 
+    let user_info_key = user_info_key(&sender);
+
     if received_coin.denom.as_str() == ATOM{
         token_amount = received_coin.amount * state.token_cost_atom;
         let sale_info = SALEINFO.load(deps.storage)?;
@@ -132,15 +140,15 @@ fn execute_buy_token(
         })?;
 
         //user info update
-        let user_info = USERINFO.may_load(deps.storage, &sender)?;
+        let user_info = user_info_storage().may_load(deps.storage, user_info_key.clone())?;
         match user_info {
             Some(mut user_info) => {
                 user_info.sent_atom = user_info.sent_atom + received_coin.amount;
                 user_info.total_claim_amount = user_info.total_claim_amount + token_amount;
-                USERINFO.save(deps.storage, &sender, &user_info)?;
+                user_info_storage().save(deps.storage, user_info_key, &user_info)?;
             },
             None => {
-                USERINFO.save(deps.storage, &sender, &UserInfo{
+                user_info_storage().save(deps.storage, user_info_key, &UserInfo{
                     address: sender.clone(),
                     total_claim_amount: token_amount,
                     sent_atom: received_coin.amount,
@@ -175,15 +183,15 @@ fn execute_buy_token(
         })?;
 
          //user info update
-        let user_info = USERINFO.may_load(deps.storage, &sender)?;
+        let user_info = user_info_storage().may_load(deps.storage, user_info_key.clone())?;
         match user_info {
             Some(mut user_info) => {
                 user_info.sent_juno = user_info.sent_juno + received_coin.amount;
                 user_info.total_claim_amount = user_info.total_claim_amount + token_amount;
-                USERINFO.save(deps.storage, &sender, &user_info)?;
+                user_info_storage().save(deps.storage, user_info_key, &user_info)?;
             },
             None => {
-                USERINFO.save(deps.storage, &sender, &UserInfo{
+                user_info_storage().save(deps.storage, user_info_key, &UserInfo{
                     address: sender.clone(),
                     total_claim_amount: token_amount,
                     sent_juno: received_coin.amount,
@@ -223,17 +231,18 @@ fn execute_claim_token(
     let presale_end = state.presale_start + state.presale_period;
 
     if crr_time < presale_end{
-        return Err(ContractError::PresaleEnded {  })
+        return Err(ContractError::PresaleNotEnded {  })
     }
 
     let mut messages :Vec<CosmosMsg> = Vec::new() ;
-    let user_info = USERINFO.may_load(deps.storage, &sender)?;
+    let user_info_key = user_info_key(&sender);
+    let user_info = user_info_storage().may_load(deps.storage, user_info_key)?;
 
     let first_portion = Decimal::from_ratio(1 as u128, 10 as u128);
     let default_portion = Decimal::from_ratio(15 as u128, 100 as u128);
 
     if crr_time <  state.claim_start{
-       
+      
         match user_info {
             Some(user_info) =>{
                 if user_info.vesting_step == 0{
@@ -259,6 +268,7 @@ fn execute_claim_token(
             }
         }
     }  else{
+       
         match  user_info {
             Some(user_info) => {
                 let mut expect_step = (crr_time - state.claim_start)/state.vesting_step_period + 2;
@@ -271,7 +281,6 @@ fn execute_claim_token(
                 else{
                     if user_info.vesting_step == 0{
                         let token_amount_to_send = first_portion * user_info.total_claim_amount +  Uint128::from((expect_step-1) as u128) * user_info.total_claim_amount * default_portion;
-
                         user_info_update(
                             deps, 
                             sender.clone(), 
@@ -283,8 +292,8 @@ fn execute_claim_token(
                         )?;
                     }
                     else{
-                        let token_amount_to_send = Uint128::from((expect_step-1) as u128) * user_info.total_claim_amount * default_portion;
-                    
+                        println!("step{:?},{:?}", expect_step, user_info.vesting_step);
+                        let token_amount_to_send = Uint128::from((expect_step - user_info.vesting_step) as u128) * user_info.total_claim_amount * default_portion;
                         user_info_update(
                             deps, 
                             sender.clone(), 
@@ -336,6 +345,19 @@ fn execute_change_admin(
         .add_attribute("address", address))
 }
 
+fn execute_update_config(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    state: State
+) -> Result<Response, ContractError> {
+     authcheck(deps.as_ref(), &info)?;
+
+     CONFIG.save(deps.storage, &state)?;
+     Ok(Response::new()
+        .add_attribute("action", "update configuration"))
+}
+
 
 
 fn authcheck(deps:Deps, info: &MessageInfo) -> Result<(), ContractError> {
@@ -352,7 +374,7 @@ fn get_coin_info( info: &MessageInfo) -> Result<Coin, ContractError> {
         return Err(ContractError::SeveralCoinsSent {  });
     } else {
         let denom = info.funds[0].denom.clone();
-        if denom.as_str() != ATOM || denom.as_str() != JUNO{
+        if denom.as_str() != ATOM && denom.as_str() != JUNO{
             return Err(ContractError::NoExistCoin {  })
         }
         Ok(info.funds[0].clone())
@@ -368,11 +390,12 @@ fn user_info_update(
     state: State,
     messages: & mut Vec<CosmosMsg>
 ) -> StdResult<()>{
-    USERINFO.update(deps.storage, &sender, |user_info| -> StdResult<_>{
+    let user_info_key = user_info_key(&sender);
+    user_info_storage().update(deps.storage, user_info_key, |user_info| -> StdResult<_>{
         let mut user_info = user_info.unwrap(); 
         user_info.vesting_step = expect_step;
         user_info.last_received = crr_time;
-        user_info.claimed_amount = token_amount_to_send;
+        user_info.claimed_amount = user_info.claimed_amount + token_amount_to_send;
         Ok(user_info)
     })?;
                         
@@ -386,3 +409,4 @@ fn user_info_update(
 
     Ok(())
 }
+

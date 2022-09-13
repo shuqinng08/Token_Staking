@@ -1,4 +1,4 @@
-use cosmwasm_std::{Uint128, Decimal, Timestamp, BlockInfo};
+use cosmwasm_std::{Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cw_storage_plus::{Item,Map,MultiIndex,IndexList,Index,IndexedMap};
@@ -6,7 +6,6 @@ use cw_storage_plus::{Item,Map,MultiIndex,IndexList,Index,IndexedMap};
 pub const CONFIG: Item<State> = Item::new("config_state");
 pub const SALEINFO: Item<SaleInfo> = Item::new("config_sale_info");
 pub const COININFO: Map<&str, bool> = Map::new("config_token_info");
-pub const USERINFO: Map<&str, UserInfo> = Map::new("config_user_info");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
@@ -40,4 +39,27 @@ pub struct UserInfo {
   pub last_received: u64
 }
 
+pub type UserInfoKey<'a> = String;
 
+pub fn user_info_key<'a>(address: &'a String) -> UserInfoKey<'a> {
+  address.clone()
+} 
+
+pub struct UserInfoIndicies<'a> {
+  pub address: MultiIndex<'a, String, UserInfo, UserInfoKey<'a>>
+}
+
+impl<'a> IndexList<UserInfo> for UserInfoIndicies<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UserInfo>> + '_> {
+        let v: Vec<&dyn Index<UserInfo>> = vec![&self.address];
+        Box::new(v.into_iter())
+    }
+}
+
+
+pub fn user_info_storage<'a>() -> IndexedMap<'a, UserInfoKey<'a>, UserInfo, UserInfoIndicies<'a>> {
+    let indexes = UserInfoIndicies {
+        address: MultiIndex::new(|d: &UserInfo| d.address.clone(), "user_info", "user_info__collection"),
+      };
+    IndexedMap::new("user_info", indexes)
+}
