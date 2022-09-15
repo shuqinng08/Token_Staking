@@ -172,8 +172,6 @@ pub fn query_get_user_infos(
     let start = start_after.map(|s| Bound::ExclusiveRaw(s.into()));
 
     let user_info = user_info_storage()
-        .idx
-        .address
         .range(deps.storage, 
             start,
              None, 

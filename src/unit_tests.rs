@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::contract::{execute, instantiate};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
-use crate::query::{ query_sale_info, query_user_info, query_claimable_amount, query_claimable_time};
+use crate::query::{ query_sale_info, query_user_info, query_claimable_amount, query_claimable_time, query_get_user_infos};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{  DepsMut,  Uint128,to_binary, Env,  CosmosMsg, WasmMsg,  Coin, BankMsg};
 
@@ -113,6 +113,11 @@ fn test_buy(){
         msg:to_binary(&Cw20ExecuteMsg::Transfer{recipient:"admin".to_string(),amount:Uint128::new(3750)}).unwrap(), 
         funds: vec![]})
     );
+
+    println!("user informations");
+
+    let user_infos = query_get_user_infos(deps.as_ref(), Some("user1".to_string()), Some(20)).unwrap();
+    println!("{:?}",user_infos);
 }
 
 #[test] 
