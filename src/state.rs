@@ -19,6 +19,7 @@ pub struct State {
     pub token_cost_juno: Uint128,
     pub token_cost_atom: Uint128,
     pub token_cost_usdc: Uint128,
+    pub contract_admin: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

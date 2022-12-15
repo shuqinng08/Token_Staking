@@ -21,7 +21,7 @@ const USDC: &str = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -46,6 +46,7 @@ pub fn instantiate(
         token_cost_atom: msg.token_cost_atom,
         token_cost_juno: msg.token_cost_juno,
         token_cost_usdc: msg.token_cost_usdc,
+        contract_admin: info.sender.to_string(),
     };
     CONFIG.save(deps.storage, &state)?;
 
@@ -417,7 +418,7 @@ fn execute_withdraw_token_by_admin(
 
 fn authcheck(deps: Deps, info: &MessageInfo) -> Result<(), ContractError> {
     let state = CONFIG.load(deps.storage)?;
-    if info.sender != state.admin {
+    if info.sender.to_string() != state.contract_admin {
         return Err(ContractError::Unauthorized {});
     }
     Ok(())
