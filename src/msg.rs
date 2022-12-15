@@ -16,7 +16,8 @@ pub struct InstantiateMsg {
   pub vesting_step_period: u64,
   pub claim_start: u64,
   pub token_cost_juno: Uint128,
-  pub token_cost_atom: Uint128
+  pub token_cost_atom: Uint128,
+  pub token_cost_usdc: Uint128
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

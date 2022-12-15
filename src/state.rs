@@ -1,7 +1,7 @@
-use cosmwasm_std::{Uint128};
+use cosmwasm_std::Uint128;
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cw_storage_plus::{Item,Map,MultiIndex,IndexList,Index,IndexedMap};
 
 pub const CONFIG: Item<State> = Item::new("config_state");
 pub const SALEINFO: Item<SaleInfo> = Item::new("config_sale_info");
@@ -9,44 +9,46 @@ pub const COININFO: Map<&str, bool> = Map::new("config_token_info");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-  pub admin: String,
-  pub token_address: String,
-  pub total_supply: Uint128,
-  pub presale_start: u64,
-  pub presale_period: u64,
-  pub vesting_step_period: u64,
-  pub claim_start: u64,
-  pub token_cost_juno: Uint128,
-  pub token_cost_atom: Uint128
+    pub admin: String,
+    pub token_address: String,
+    pub total_supply: Uint128,
+    pub presale_start: u64,
+    pub presale_period: u64,
+    pub vesting_step_period: u64,
+    pub claim_start: u64,
+    pub token_cost_juno: Uint128,
+    pub token_cost_atom: Uint128,
+    pub token_cost_usdc: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct SaleInfo {
-  pub token_sold_amount: Uint128,
-  pub earned_juno: Uint128,
-  pub earned_atom: Uint128
+    pub token_sold_amount: Uint128,
+    pub earned_juno: Uint128,
+    pub earned_atom: Uint128,
+    pub earned_usdc: Uint128,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct UserInfo {
-  pub address: String,
-  pub total_claim_amount: Uint128,
-  pub sent_atom: Uint128,
-  pub sent_juno: Uint128,
-  pub claimed_amount: Uint128,
-  pub vesting_step: u64,
-  pub last_received: u64
+    pub address: String,
+    pub total_claim_amount: Uint128,
+    pub sent_atom: Uint128,
+    pub sent_juno: Uint128,
+    pub sent_usdc: Uint128,
+    pub claimed_amount: Uint128,
+    pub vesting_step: u64,
+    pub last_received: u64,
 }
 
 pub type UserInfoKey<'a> = String;
 
 pub fn user_info_key<'a>(address: &'a String) -> UserInfoKey<'a> {
-  address.clone()
-} 
+    address.clone()
+}
 
 pub struct UserInfoIndicies<'a> {
-  pub address: MultiIndex<'a, String, UserInfo, UserInfoKey<'a>>
+    pub address: MultiIndex<'a, String, UserInfo, UserInfoKey<'a>>,
 }
 
 impl<'a> IndexList<UserInfo> for UserInfoIndicies<'a> {
@@ -56,10 +58,13 @@ impl<'a> IndexList<UserInfo> for UserInfoIndicies<'a> {
     }
 }
 
-
 pub fn user_info_storage<'a>() -> IndexedMap<'a, UserInfoKey<'a>, UserInfo, UserInfoIndicies<'a>> {
     let indexes = UserInfoIndicies {
-        address: MultiIndex::new(|d: &UserInfo| d.address.clone(), "user_info", "user_info__collection"),
-      };
+        address: MultiIndex::new(
+            |d: &UserInfo| d.address.clone(),
+            "user_info",
+            "user_info__collection",
+        ),
+    };
     IndexedMap::new("user_info", indexes)
 }
