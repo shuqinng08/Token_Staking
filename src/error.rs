@@ -9,6 +9,12 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("You used wrong token contract")]
+    WrongContractError {},
+
+    #[error("You should send the bond message when you call this function")]
+    DataShouldBeGiven {},
+
     #[error("Cannot update; the new schedule must support all of the previous schedule")]
     NotIncludeAllDistributionSchedule {},
 

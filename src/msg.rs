@@ -13,7 +13,7 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    //Receive(Cw20ReceiveMsg),
+    Receive(Cw20ReceiveMsg),
     // Unbond {
     //     amount: Uint128,
     // },
