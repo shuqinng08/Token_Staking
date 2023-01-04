@@ -1,60 +1,83 @@
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::Uint128;
 
-use crate::state::{UserInfo, State};
-
+use cosmwasm_std::{Decimal, Uint128};
+use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
-  pub admin: String,
-  pub token_address: String,
-  pub total_supply: Uint128,
-  pub presale_start: u64,
-  pub presale_period: u64,
-  pub vesting_step_period: u64,
-  pub claim_start: u64,
-  pub token_cost_juno: Uint128,
-  pub token_cost_atom: Uint128,
-  pub token_cost_usdc: Uint128
+    pub token_contract: String,
+    pub distribution_schedule: Vec<(u64, u64, Uint128)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    BuyToken{},
-    ClaimToken{},
-    ChangeAdmin{ address:String },
-    UpdateConfig{ state: State},
-    WithdrawTokenByAdmin {} 
+    //Receive(Cw20ReceiveMsg),
+    // Unbond {
+    //     amount: Uint128,
+    // },
+    // /// Withdraw pending rewards
+    // Withdraw {},
+    // /// Owner operation to stop distribution on current staking contract
+    // /// and send remaining tokens to the new contract
+    // MigrateStaking {
+    //     new_staking_contract: String,
+    // },
+    UpdateConfig {
+        distribution_schedule: Vec<(u64, u64, Uint128)>,
+    },
+    UpdateAdmin {
+        admin: String,
+    },
+    UpdateTokenContract {
+        token_contract: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub enum Cw20HookMsg {
+    Bond {},
+}
+
+/// migrate struct for distribution schedule
+/// block-based schedule to a time-based schedule
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    GetStateInfo{},
-    GetUserInfo{ address:String},
-    GetSaleInfo{},
-    GetClaimableAmount{ address:String },
-    GetClaimableTime{ address:String },
-    GetUserInfos{ start_after: Option<String>, limit:Option<u32>}
+    Config {},
+    // State { block_time: Option<u64> },
+    // StakerInfo {
+    //     staker: String,
+    //     block_time: Option<u64>,
+    // },
 }
 
+// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct UserInfosResponse{
-  pub user_info: Vec<UserInfo>
+pub struct ConfigResponse {
+    pub token_address: String,
+    pub distribution_schedule: Vec<(u64, u64, Uint128)>,
+    pub admin: String,
 }
 
-
+// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct UserInfoResponse{
- pub user_info: UserInfo
+pub struct StateResponse {
+    pub last_distributed: u64,
+    pub total_bond_amount: Uint128,
+    pub global_reward_index: Decimal,
 }
 
-
+// We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct TimeInfo{
- pub crr_time: u64,
- pub claimable_time: u64
+pub struct StakerInfoResponse {
+    pub staker: String,
+    pub reward_index: Decimal,
+    pub bond_amount: Uint128,
+    pub pending_reward: Uint128,
 }

@@ -1,71 +1,58 @@
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub const CONFIG: Item<State> = Item::new("config_state");
-pub const SALEINFO: Item<SaleInfo> = Item::new("config_sale_info");
-pub const COININFO: Map<&str, bool> = Map::new("config_token_info");
+pub const CONFIG: Item<Config> = Item::new("config_config");
+pub const STATE: Item<State> = Item::new("config_state");
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Config {
+    pub token_contract: String,
+    pub distribution_schedule: Vec<(u64, u64, Uint128)>,
+    pub admin: String,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    pub admin: String,
-    pub token_address: String,
-    pub total_supply: Uint128,
-    pub presale_start: u64,
-    pub presale_period: u64,
-    pub vesting_step_period: u64,
-    pub claim_start: u64,
-    pub token_cost_juno: Uint128,
-    pub token_cost_atom: Uint128,
-    pub token_cost_usdc: Uint128,
-    pub contract_admin: String,
+    pub last_distributed: u64,
+    pub total_bond_amount: Uint128,
+    pub global_reward_index: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct SaleInfo {
-    pub token_sold_amount: Uint128,
-    pub earned_juno: Uint128,
-    pub earned_atom: Uint128,
-    pub earned_usdc: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct UserInfo {
+pub struct StakerInfo {
     pub address: String,
-    pub total_claim_amount: Uint128,
-    pub sent_atom: Uint128,
-    pub sent_juno: Uint128,
-    pub sent_usdc: Uint128,
-    pub claimed_amount: Uint128,
-    pub vesting_step: u64,
-    pub last_received: u64,
+    pub reward_index: Decimal,
+    pub bond_amount: Uint128,
+    pub pending_reward: Uint128,
 }
 
-pub type UserInfoKey<'a> = String;
+pub type StakerInfoKey<'a> = String;
 
-pub fn user_info_key<'a>(address: &'a String) -> UserInfoKey<'a> {
+pub fn staker_info_key<'a>(address: &'a String) -> StakerInfoKey<'a> {
     address.clone()
 }
 
-pub struct UserInfoIndicies<'a> {
-    pub address: MultiIndex<'a, String, UserInfo, UserInfoKey<'a>>,
+pub struct StakerInfoIndicies<'a> {
+    pub address: MultiIndex<'a, String, StakerInfo, StakerInfoKey<'a>>,
 }
 
-impl<'a> IndexList<UserInfo> for UserInfoIndicies<'a> {
-    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UserInfo>> + '_> {
-        let v: Vec<&dyn Index<UserInfo>> = vec![&self.address];
+impl<'a> IndexList<StakerInfo> for StakerInfoIndicies<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<StakerInfo>> + '_> {
+        let v: Vec<&dyn Index<StakerInfo>> = vec![&self.address];
         Box::new(v.into_iter())
     }
 }
 
-pub fn user_info_storage<'a>() -> IndexedMap<'a, UserInfoKey<'a>, UserInfo, UserInfoIndicies<'a>> {
-    let indexes = UserInfoIndicies {
+pub fn staker_info_storage<'a>(
+) -> IndexedMap<'a, StakerInfoKey<'a>, StakerInfo, StakerInfoIndicies<'a>> {
+    let indexes = StakerInfoIndicies {
         address: MultiIndex::new(
-            |d: &UserInfo| d.address.clone(),
-            "user_info",
-            "user_info__collection",
+            |d: &StakerInfo| d.address.clone(),
+            "staker_info",
+            "staker_info__collection",
         ),
     };
-    IndexedMap::new("user_info", indexes)
+    IndexedMap::new("staker_info", indexes)
 }

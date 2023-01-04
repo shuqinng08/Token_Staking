@@ -8,37 +8,16 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
-   
-    #[error("Wrong Configuration")]
-    WrongConfig {},
 
-    #[error("Coin already exists")]
-    ExistCoin {},
+    #[error("Cannot update; the new schedule must support all of the previous schedule")]
+    NotIncludeAllDistributionSchedule {},
 
-    #[error("Coin does not exist")]
-    NoExistCoin {},
+    #[error("new schedule removes already started distribution")]
+    NewScheduleRemovePastDistribution {},
 
-    #[error("No Funds Needed")]
-    NoFundsNeed {},
+    #[error("new schedule adds an already started distribution")]
+    NewScheduleAddPastDistribution {},
 
-    #[error("You sent several coins")]
-    SeveralCoinsSent {},
-
-    #[error("Presale is not started")]
-    PresaleNotStarted {},
-
-    #[error("Presale is finished")]
-    PresaleEnded{},
-
-    #[error("Presale is not finished")]
-    PresaleNotEnded{},
-
-    #[error("You have to wait for the next step")]
-    AlreadyClaimedForCurrentStep{},
-
-    #[error("You did not do in the presale.")]
-    NotInPresale{},
-
-    #[error("There are no enough tokens as your demand")]
-    NoEnoughTokens{}
+    #[error("Cannot migrate from different contract type: {previous_contract}")]
+    CannotMigrate { previous_contract: String },
 }
