@@ -24,6 +24,9 @@ pub enum ContractError {
     #[error("new schedule adds an already started distribution")]
     NewScheduleAddPastDistribution {},
 
+    #[error("Cannot unbond more than bond amount")]
+    ExceedBondAmount {},
+
     #[error("Cannot migrate from different contract type: {previous_contract}")]
     CannotMigrate { previous_contract: String },
 }

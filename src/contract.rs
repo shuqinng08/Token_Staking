@@ -59,6 +59,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::Unbond { amount } => unbond(deps, env, info, amount),
         ExecuteMsg::UpdateConfig {
             distribution_schedule,
         } => update_config(deps, env, info, distribution_schedule),
@@ -90,6 +91,108 @@ pub fn receive_cw20(
         }
         Err(_) => return Err(ContractError::DataShouldBeGiven {}),
     }
+}
+
+pub fn bond(
+    deps: DepsMut,
+    env: Env,
+    sender_addr: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
+
+    let staker_info_key = staker_info_key(&sender_addr);
+    let mut staker_info: StakerInfo;
+    match staker_info_storage().may_load(deps.storage, staker_info_key.clone())? {
+        Some(some_staker_info) => staker_info = some_staker_info,
+        None => {
+            staker_info = StakerInfo {
+                reward_index: Decimal::zero(),
+                bond_amount: Uint128::zero(),
+                pending_reward: Uint128::zero(),
+                address: sender_addr.clone(),
+            }
+        }
+    };
+
+    // Compute global reward & staker reward
+    compute_reward(&config, &mut state, env.block.time.seconds());
+    compute_staker_reward(&state, &mut staker_info)?;
+
+    // Increase bond_amount
+    increase_bond_amount(&mut state, &mut staker_info, amount);
+
+    // Store updated state with staker's staker_info
+    staker_info_storage().save(deps.storage, staker_info_key.clone(), &staker_info)?;
+    STATE.save(deps.storage, &state)?;
+
+    Ok(Response::new().add_attributes(vec![
+        ("action", "bond"),
+        ("owner", sender_addr.as_str()),
+        ("amount", amount.to_string().as_str()),
+    ]))
+}
+
+pub fn unbond(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
+    let sender_addr = info.sender.to_string();
+
+    let staker_info_key = staker_info_key(&sender_addr);
+    let mut staker_info: StakerInfo;
+    match staker_info_storage().may_load(deps.storage, staker_info_key.clone())? {
+        Some(some_staker_info) => staker_info = some_staker_info,
+        None => {
+            staker_info = StakerInfo {
+                reward_index: Decimal::zero(),
+                bond_amount: Uint128::zero(),
+                pending_reward: Uint128::zero(),
+                address: sender_addr.clone(),
+            }
+        }
+    };
+    if staker_info.bond_amount < amount {
+        return Err(ContractError::ExceedBondAmount {});
+    }
+
+    // Compute global reward & staker reward
+    compute_reward(&config, &mut state, env.block.time.seconds());
+    compute_staker_reward(&state, &mut staker_info)?;
+
+    // Decrease bond_amount
+    decrease_bond_amount(&mut state, &mut staker_info, amount)?;
+
+    // Store or remove updated rewards info
+    // depends on the left pending reward and bond amount
+    if staker_info.pending_reward.is_zero() && staker_info.bond_amount.is_zero() {
+        staker_info_storage().remove(deps.storage, staker_info_key);
+    } else {
+        staker_info_storage().save(deps.storage, staker_info_key, &staker_info)?;
+    }
+
+    // Store updated state
+    STATE.save(deps.storage, &state)?;
+
+    Ok(Response::new()
+        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.token_contract,
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: info.sender.to_string(),
+                amount,
+            })?,
+            funds: vec![],
+        })])
+        .add_attributes(vec![
+            ("action", "unbond"),
+            ("owner", info.sender.as_str()),
+            ("amount", amount.to_string().as_str()),
+        ]))
 }
 
 pub fn update_config(
@@ -145,47 +248,6 @@ pub fn update_token_contract(
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![("action", "update_admin")]))
-}
-
-pub fn bond(
-    deps: DepsMut,
-    env: Env,
-    sender_addr: String,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    let mut state = STATE.load(deps.storage)?;
-
-    let staker_info_key = staker_info_key(&sender_addr);
-    let mut staker_info: StakerInfo;
-    match staker_info_storage().may_load(deps.storage, staker_info_key.clone())? {
-        Some(some_staker_info) => staker_info = some_staker_info,
-        None => {
-            staker_info = StakerInfo {
-                reward_index: Decimal::zero(),
-                bond_amount: Uint128::zero(),
-                pending_reward: Uint128::zero(),
-                address: sender_addr.clone(),
-            }
-        }
-    };
-
-    // Compute global reward & staker reward
-    compute_reward(&config, &mut state, env.block.time.seconds());
-    compute_staker_reward(&state, &mut staker_info)?;
-
-    // Increase bond_amount
-    increase_bond_amount(&mut state, &mut staker_info, amount);
-
-    // Store updated state with staker's staker_info
-    staker_info_storage().save(deps.storage, staker_info_key.clone(), &staker_info)?;
-    STATE.save(deps.storage, &state)?;
-
-    Ok(Response::new().add_attributes(vec![
-        ("action", "bond"),
-        ("owner", sender_addr.as_str()),
-        ("amount", amount.to_string().as_str()),
-    ]))
 }
 
 fn authcheck(deps: Deps, info: &MessageInfo) -> Result<(), ContractError> {
