@@ -2,8 +2,8 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
-use Hopers_Presale::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use Hopers_Presale::state::State;
+use Hopers_Staking::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use Hopers_Staking::state::State;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

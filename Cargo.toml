@@ -1,10 +1,10 @@
 [package]
-name = "Hopers_Presale"
+name = "Hopers_Staking"
 version = "0.1.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
+authors = ["Jason <venus07250000@gmail.com>"]
 edition = "2018"
-description = "NFT marketplace projects based on Juno chain"
-repository = "https://github.com/CosmWasm/cosmwasm-examples"
+description = "Hopers LP TOKEN STAKING CONTRACT"
+repository = "https://github.com/VenusDev0725/Token_Staking"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

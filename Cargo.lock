@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "Hopers_Presale"
+name = "Hopers_Staking"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",

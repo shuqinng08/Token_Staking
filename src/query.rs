@@ -3,7 +3,7 @@ use crate::msg::{
     ConfigResponse, QueryMsg, StakerInfoResponse, StakersListResponse, StateResponse,
 };
 use crate::state::{staker_info_key, staker_info_storage, CONFIG, STATE};
-use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Order, StdResult, Uint128};
+use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Order, StdResult, Uint128, Env};
 use cw_storage_plus::Bound;
 
 // Query limits
@@ -11,7 +11,7 @@ const DEFAULT_QUERY_LIMIT: u32 = 10;
 const MAX_QUERY_LIMIT: u32 = 30;
 
 #[entry_point]
-pub fn query(deps: Deps, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps,_env:Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_time } => to_binary(&query_state(deps, block_time)?),
