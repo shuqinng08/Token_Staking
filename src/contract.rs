@@ -1,13 +1,10 @@
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps,
-    DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    entry_point, from_binary, to_binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult, Uint128, WasmMsg,
 };
 
 use crate::error::ContractError;
-use crate::msg::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-    StakerInfoResponse, StateResponse,
-};
+use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg};
 use crate::state::{
     staker_info_key, staker_info_storage, Config, StakerInfo, State, CONFIG, STATE,
 };
@@ -17,7 +14,7 @@ use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use std::collections::BTreeMap;
 
-const CONTRACT_NAME: &str = "Hope_Staking";
+const CONTRACT_NAME: &str = "Hopers_Staking";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[entry_point]
@@ -27,6 +24,8 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
     deps.api.addr_validate(&msg.lp_token_contract)?;
     deps.api.addr_validate(&msg.reward_token_contract)?;
 

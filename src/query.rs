@@ -1,7 +1,9 @@
 use crate::contract::{compute_reward, compute_staker_reward};
-use crate::msg::{ConfigResponse, QueryMsg, StakerInfoResponse, StateResponse};
+use crate::msg::{
+    ConfigResponse, QueryMsg, StakerInfoResponse, StakersListResponse, StateResponse,
+};
 use crate::state::{staker_info_key, staker_info_storage, CONFIG, STATE};
-use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Env, Order, StdResult, Uint128};
+use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Order, StdResult, Uint128};
 use cw_storage_plus::Bound;
 
 // Query limits
@@ -9,12 +11,15 @@ const DEFAULT_QUERY_LIMIT: u32 = 10;
 const MAX_QUERY_LIMIT: u32 = 30;
 
 #[entry_point]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_time } => to_binary(&query_state(deps, block_time)?),
         QueryMsg::StakerInfo { staker, block_time } => {
             to_binary(&query_staker_info(deps, staker, block_time)?)
+        }
+        QueryMsg::AllStakers { start_after, limit } => {
+            to_binary(&query_all_stakers(deps, start_after, limit)?)
         }
     }
 }
@@ -76,18 +81,18 @@ pub fn query_staker_info(
     }
 }
 
-// pub fn query_get_user_infos(
-//     deps: Deps,
-//     start_after: Option<String>,
-//     limit: Option<u32>,
-// ) -> StdResult<UserInfosResponse> {
-//     let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
-//     let start = start_after.map(|s| Bound::ExclusiveRaw(s.into()));
+pub fn query_all_stakers(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<StakersListResponse> {
+    let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
+    let start = start_after.map(|s| Bound::ExclusiveRaw(s.into()));
 
-//     let user_info = user_info_storage()
-//         .range(deps.storage, start, None, Order::Ascending)
-//         .take(limit)
-//         .map(|res| res.map(|item| item.1))
-//         .collect::<StdResult<Vec<_>>>()?;
-//     Ok(UserInfosResponse { user_info })
-// }
+    let stakers_list = staker_info_storage()
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|res| res.map(|item| item.1))
+        .collect::<StdResult<Vec<_>>>()?;
+    Ok(StakersListResponse { stakers_list })
+}

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Decimal, Uint128};
 use cw20::Cw20ReceiveMsg;
 
+use crate::state::StakerInfo;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     pub lp_token_contract: String,
@@ -59,6 +61,10 @@ pub enum QueryMsg {
         staker: String,
         block_time: Option<u64>,
     },
+    AllStakers {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 // We define a custom struct for each query response
@@ -85,4 +91,9 @@ pub struct StakerInfoResponse {
     pub reward_index: Decimal,
     pub bond_amount: Uint128,
     pub pending_reward: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct StakersListResponse {
+    pub stakers_list: Vec<StakerInfo>,
 }
