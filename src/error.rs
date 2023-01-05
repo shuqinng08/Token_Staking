@@ -9,6 +9,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("This user did not take part in staking")]
+    NotStaked {},
+
     #[error("You used wrong token contract")]
     WrongContractError {},
 

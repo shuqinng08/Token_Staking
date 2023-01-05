@@ -8,7 +8,8 @@ pub const STATE: Item<State> = Item::new("config_state");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub token_contract: String,
+    pub lp_token_contract: String,
+    pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
     pub admin: String,
 }

@@ -6,7 +6,8 @@ use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub token_contract: String,
+    pub lp_token_contract: String,
+    pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
 }
 
@@ -17,13 +18,13 @@ pub enum ExecuteMsg {
     Unbond {
         amount: Uint128,
     },
-    // /// Withdraw pending rewards
-    // Withdraw {},
-    // /// Owner operation to stop distribution on current staking contract
-    // /// and send remaining tokens to the new contract
-    // MigrateStaking {
-    //     new_staking_contract: String,
-    // },
+    /// Withdraw pending rewards
+    Withdraw {},
+    /// Owner operation to stop distribution on current staking contract
+    /// and send remaining tokens to the new contract
+    MigrateStaking {
+        new_staking_contract: String,
+    },
     UpdateConfig {
         distribution_schedule: Vec<(u64, u64, Uint128)>,
     },
@@ -31,7 +32,8 @@ pub enum ExecuteMsg {
         admin: String,
     },
     UpdateTokenContract {
-        token_contract: String,
+        lp_token_contract: String,
+        reward_token_contract: String,
     },
 }
 
@@ -50,17 +52,20 @@ pub struct MigrateMsg {}
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
-    // State { block_time: Option<u64> },
-    // StakerInfo {
-    //     staker: String,
-    //     block_time: Option<u64>,
-    // },
+    State {
+        block_time: Option<u64>,
+    },
+    StakerInfo {
+        staker: String,
+        block_time: Option<u64>,
+    },
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ConfigResponse {
-    pub token_address: String,
+    pub lp_token_contract: String,
+    pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
     pub admin: String,
 }
