@@ -12,11 +12,17 @@ pub enum ContractError {
     #[error("This user did not take part in staking")]
     NotStaked {},
 
+    #[error("There is no such bonding info")]
+    NotSuchUnbonding {},
+
     #[error("You used wrong token contract")]
     WrongContractError {},
 
     #[error("You should send the bond message when you call this function")]
     DataShouldBeGiven {},
+
+    #[error("You should wait until the lock time is finished")]
+    TimeRemainingForRedeem {},
 
     #[error("Cannot update; the new schedule must support all of the previous schedule")]
     NotIncludeAllDistributionSchedule {},

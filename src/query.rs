@@ -1,9 +1,13 @@
 use crate::contract::{compute_reward, compute_staker_reward};
 use crate::msg::{
     ConfigResponse, QueryMsg, StakerInfoResponse, StakersListResponse, StateResponse,
+    UnbondingInfoResponse,
 };
-use crate::state::{staker_info_key, staker_info_storage, CONFIG, STATE};
-use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Order, StdResult, Uint128, Env};
+use crate::state::{
+    staker_info_key, staker_info_storage, unbonding_info_storage, user_earned_info_key,
+    user_earned_info_storage, CONFIG, STATE,
+};
+use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Env, Order, StdResult, Uint128};
 use cw_storage_plus::Bound;
 
 // Query limits
@@ -11,7 +15,7 @@ const DEFAULT_QUERY_LIMIT: u32 = 10;
 const MAX_QUERY_LIMIT: u32 = 30;
 
 #[entry_point]
-pub fn query(deps: Deps,_env:Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_time } => to_binary(&query_state(deps, block_time)?),
@@ -21,6 +25,11 @@ pub fn query(deps: Deps,_env:Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AllStakers { start_after, limit } => {
             to_binary(&query_all_stakers(deps, start_after, limit)?)
         }
+        QueryMsg::UnbondingInfo {
+            staker,
+            start_after,
+            limit,
+        } => to_binary(&query_unbonding_info(deps, staker, start_after, limit)?),
     }
 }
 
@@ -31,6 +40,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         reward_token_contract: config.reward_token_contract,
         distribution_schedule: config.distribution_schedule,
         admin: config.admin,
+        lock_duration: config.lock_duration,
     })
 }
 
@@ -65,11 +75,24 @@ pub fn query_staker_info(
                 compute_staker_reward(&state, &mut staker_info)?;
             }
 
+            let mut total_earned = Uint128::new(0);
+
+            let user_earned_info_key = user_earned_info_key(&staker);
+            match user_earned_info_storage().may_load(deps.storage, user_earned_info_key)? {
+                Some(user_earned_info) => {
+                    total_earned = user_earned_info.total_earned;
+                }
+                None => {
+                    total_earned = Uint128::zero();
+                }
+            }
+
             Ok(StakerInfoResponse {
                 staker,
                 reward_index: staker_info.reward_index,
                 bond_amount: staker_info.bond_amount,
                 pending_reward: staker_info.pending_reward,
+                total_earned,
             })
         }
         None => Ok(StakerInfoResponse {
@@ -77,6 +100,7 @@ pub fn query_staker_info(
             reward_index: Decimal::zero(),
             bond_amount: Uint128::zero(),
             pending_reward: Uint128::zero(),
+            total_earned: Uint128::zero(),
         }),
     }
 }
@@ -95,4 +119,29 @@ pub fn query_all_stakers(
         .map(|res| res.map(|item| item.1))
         .collect::<StdResult<Vec<_>>>()?;
     Ok(StakersListResponse { stakers_list })
+}
+
+pub fn query_unbonding_info(
+    deps: Deps,
+    staker: String,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<UnbondingInfoResponse> {
+    let limit = limit.unwrap_or(DEFAULT_QUERY_LIMIT).min(MAX_QUERY_LIMIT) as usize;
+
+    let unbonding_info = unbonding_info_storage()
+        .idx
+        .address
+        .prefix(staker.clone())
+        .range(
+            deps.storage,
+            Some(Bound::exclusive((staker, start_after.unwrap_or_default()))),
+            None,
+            Order::Ascending,
+        )
+        .take(limit)
+        .map(|res| res.map(|item| item.1))
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(UnbondingInfoResponse { unbonding_info })
 }

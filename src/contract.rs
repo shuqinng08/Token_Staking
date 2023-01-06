@@ -6,7 +6,9 @@ use cosmwasm_std::{
 use crate::error::ContractError;
 use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg};
 use crate::state::{
-    staker_info_key, staker_info_storage, Config, StakerInfo, State, CONFIG, STATE,
+    staker_info_key, staker_info_storage, unbonding_info_key, unbonding_info_storage,
+    user_earned_info_key, user_earned_info_storage, Config, StakerInfo, State, UnbondingInfo,
+    UserEarnedInfo, CONFIG, STATE,
 };
 
 use cw2::{get_contract_version, set_contract_version};
@@ -36,6 +38,7 @@ pub fn instantiate(
             reward_token_contract: msg.reward_token_contract,
             distribution_schedule: msg.distribution_schedule,
             admin: info.sender.to_string(),
+            lock_duration: msg.lock_duration,
         },
     )?;
 
@@ -61,6 +64,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::Unbond { amount } => unbond(deps, env, info, amount),
+        ExecuteMsg::Redeem { time } => redeem(deps, env, info, time),
         ExecuteMsg::Withdraw {} => withdraw(deps, env, info),
         ExecuteMsg::UpdateConfig {
             distribution_schedule,
@@ -73,6 +77,9 @@ pub fn execute(
             lp_token_contract,
             reward_token_contract,
         } => update_token_contract(deps, info, lp_token_contract, reward_token_contract),
+        ExecuteMsg::UpdateLockDuration { lock_duration } => {
+            update_lock_duration(deps, info, lock_duration)
+        }
     }
 }
 
@@ -149,6 +156,7 @@ pub fn unbond(
     let config = CONFIG.load(deps.storage)?;
     let mut state = STATE.load(deps.storage)?;
     let sender_addr = info.sender.to_string();
+    let time = env.block.time.seconds();
 
     let staker_info_key = staker_info_key(&sender_addr);
     let mut staker_info: StakerInfo;
@@ -179,6 +187,52 @@ pub fn unbond(
     // Store updated state
     STATE.save(deps.storage, &state)?;
 
+    let unbonding_info_key = unbonding_info_key(&sender_addr, time);
+    unbonding_info_storage().save(
+        deps.storage,
+        unbonding_info_key,
+        &UnbondingInfo {
+            address: sender_addr.clone(),
+            amount,
+            time,
+        },
+    )?;
+
+    Ok(Response::new().add_attributes(vec![
+        ("action", "unbond"),
+        ("owner", info.sender.as_str()),
+        ("amount", amount.to_string().as_str()),
+    ]))
+}
+
+pub fn redeem(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    time: u64,
+) -> Result<Response, ContractError> {
+    let sender_addr = info.sender.to_string();
+    let time = env.block.time.seconds();
+
+    let config = CONFIG.load(deps.storage)?;
+
+    let unbonding_info_key = unbonding_info_key(&sender_addr, time);
+
+    let unbonding_info =
+        unbonding_info_storage().may_load(deps.storage, unbonding_info_key.clone())?;
+    if unbonding_info.is_none() {
+        return Err(ContractError::NotSuchUnbonding {});
+    }
+
+    let unbonding_info = unbonding_info.unwrap();
+    if unbonding_info.time + config.lock_duration > time {
+        return Err(ContractError::TimeRemainingForRedeem {});
+    }
+
+    let amount = unbonding_info.amount;
+
+    unbonding_info_storage().remove(deps.storage, unbonding_info_key.clone())?;
+
     Ok(Response::new()
         .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.lp_token_contract,
@@ -189,7 +243,7 @@ pub fn unbond(
             funds: vec![],
         })])
         .add_attributes(vec![
-            ("action", "unbond"),
+            ("action", "redeem"),
             ("owner", info.sender.as_str()),
             ("amount", amount.to_string().as_str()),
         ]))
@@ -212,6 +266,28 @@ pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, 
     // Compute global reward & staker reward
     compute_reward(&config, &mut state, env.block.time.seconds());
     compute_staker_reward(&state, &mut staker_info)?;
+
+    let user_earned_info_key = user_earned_info_key(&sender_addr);
+    match user_earned_info_storage().may_load(deps.storage, user_earned_info_key.clone())? {
+        Some(mut user_earned_info) => {
+            user_earned_info.total_earned += staker_info.pending_reward;
+            user_earned_info_storage().save(
+                deps.storage,
+                user_earned_info_key,
+                &user_earned_info,
+            )?;
+        }
+        None => {
+            user_earned_info_storage().save(
+                deps.storage,
+                user_earned_info_key,
+                &UserEarnedInfo {
+                    address: sender_addr,
+                    total_earned: staker_info.pending_reward,
+                },
+            )?;
+        }
+    }
 
     let amount = staker_info.pending_reward;
     staker_info.pending_reward = Uint128::zero();
@@ -334,6 +410,7 @@ pub fn update_config(
         lp_token_contract: config.lp_token_contract,
         reward_token_contract: config.reward_token_contract,
         distribution_schedule,
+        lock_duration: config.lock_duration,
     };
     CONFIG.save(deps.storage, &new_config)?;
 
@@ -374,6 +451,21 @@ pub fn update_token_contract(
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![("action", "update_admin")]))
+}
+
+pub fn update_lock_duration(
+    deps: DepsMut,
+    info: MessageInfo,
+    lock_duration: u64,
+) -> Result<Response, ContractError> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    authcheck(deps.as_ref(), &info)?;
+    config.lock_duration = lock_duration;
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new().add_attributes(vec![("action", "update_lock_duration")]))
 }
 
 fn authcheck(deps: Deps, info: &MessageInfo) -> Result<(), ContractError> {

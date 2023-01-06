@@ -12,6 +12,7 @@ pub struct Config {
     pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
     pub admin: String,
+    pub lock_duration: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -56,4 +57,75 @@ pub fn staker_info_storage<'a>(
         ),
     };
     IndexedMap::new("staker_info", indexes)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UserEarnedInfo {
+    pub address: String,
+    pub total_earned: Uint128,
+}
+
+pub type UserEarnedInfoKey<'a> = String;
+
+pub fn user_earned_info_key<'a>(address: &'a String) -> UserEarnedInfoKey<'a> {
+    address.clone()
+}
+
+pub struct UserEarnedInfoIndicies<'a> {
+    pub address: MultiIndex<'a, String, UserEarnedInfo, UserEarnedInfoKey<'a>>,
+}
+
+impl<'a> IndexList<UserEarnedInfo> for UserEarnedInfoIndicies<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UserEarnedInfo>> + '_> {
+        let v: Vec<&dyn Index<UserEarnedInfo>> = vec![&self.address];
+        Box::new(v.into_iter())
+    }
+}
+
+pub fn user_earned_info_storage<'a>(
+) -> IndexedMap<'a, UserEarnedInfoKey<'a>, UserEarnedInfo, UserEarnedInfoIndicies<'a>> {
+    let indexes = UserEarnedInfoIndicies {
+        address: MultiIndex::new(
+            |d: &UserEarnedInfo| d.address.clone(),
+            "user_earned_info",
+            "user_earned_info_address",
+        ),
+    };
+    IndexedMap::new("user_earned_info", indexes)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UnbondingInfo {
+    pub address: String,
+    pub time: u64,
+    pub amount: Uint128,
+}
+
+pub type UnbondingInfoKey<'a> = (String, u64);
+
+pub fn unbonding_info_key<'a>(address: &String, time: u64) -> UnbondingInfoKey {
+    (address.clone(), time)
+}
+
+pub struct UnbondingInfoIndicies<'a> {
+    pub address: MultiIndex<'a, String, UnbondingInfo, UnbondingInfoKey<'a>>,
+}
+
+impl<'a> IndexList<UnbondingInfo> for UnbondingInfoIndicies<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<UnbondingInfo>> + '_> {
+        let v: Vec<&dyn Index<UnbondingInfo>> = vec![&self.address];
+        Box::new(v.into_iter())
+    }
+}
+
+pub fn unbonding_info_storage<'a>(
+) -> IndexedMap<'a, UnbondingInfoKey<'a>, UnbondingInfo, UnbondingInfoIndicies<'a>> {
+    let indexes = UnbondingInfoIndicies {
+        address: MultiIndex::new(
+            |d: &UnbondingInfo| d.address.clone(),
+            "unbonding_info",
+            "user_unbonding_info",
+        ),
+    };
+    IndexedMap::new("unbonding_info", indexes)
 }

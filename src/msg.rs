@@ -4,13 +4,14 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Decimal, Uint128};
 use cw20::Cw20ReceiveMsg;
 
-use crate::state::StakerInfo;
+use crate::state::{StakerInfo, UnbondingInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     pub lp_token_contract: String,
     pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
+    pub lock_duration: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -22,6 +23,9 @@ pub enum ExecuteMsg {
     },
     /// Withdraw pending rewards
     Withdraw {},
+    Redeem {
+        time: u64,
+    },
     /// Owner operation to stop distribution on current staking contract
     /// and send remaining tokens to the new contract
     MigrateStaking {
@@ -36,6 +40,9 @@ pub enum ExecuteMsg {
     UpdateTokenContract {
         lp_token_contract: String,
         reward_token_contract: String,
+    },
+    UpdateLockDuration {
+        lock_duration: u64,
     },
 }
 
@@ -65,6 +72,11 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
+    UnbondingInfo {
+        staker: String,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    },
 }
 
 // We define a custom struct for each query response
@@ -74,6 +86,7 @@ pub struct ConfigResponse {
     pub reward_token_contract: String,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
     pub admin: String,
+    pub lock_duration: u64,
 }
 
 // We define a custom struct for each query response
@@ -91,9 +104,15 @@ pub struct StakerInfoResponse {
     pub reward_index: Decimal,
     pub bond_amount: Uint128,
     pub pending_reward: Uint128,
+    pub total_earned: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct StakersListResponse {
     pub stakers_list: Vec<StakerInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UnbondingInfoResponse {
+    pub unbonding_info: Vec<UnbondingInfo>,
 }
