@@ -66,7 +66,6 @@ pub enum QueryMsg {
     },
     StakerInfo {
         staker: String,
-        block_time: Option<u64>,
     },
     AllStakers {
         start_after: Option<String>,
@@ -115,4 +114,5 @@ pub struct StakersListResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct UnbondingInfoResponse {
     pub unbonding_info: Vec<UnbondingInfo>,
+    pub crr_time: u64,
 }

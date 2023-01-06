@@ -15,13 +15,11 @@ const DEFAULT_QUERY_LIMIT: u32 = 10;
 const MAX_QUERY_LIMIT: u32 = 30;
 
 #[entry_point]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::State { block_time } => to_binary(&query_state(deps, block_time)?),
-        QueryMsg::StakerInfo { staker, block_time } => {
-            to_binary(&query_staker_info(deps, staker, block_time)?)
-        }
+        QueryMsg::StakerInfo { staker } => to_binary(&query_staker_info(deps, env, staker)?),
         QueryMsg::AllStakers { start_after, limit } => {
             to_binary(&query_all_stakers(deps, start_after, limit)?)
         }
@@ -29,7 +27,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             staker,
             start_after,
             limit,
-        } => to_binary(&query_unbonding_info(deps, staker, start_after, limit)?),
+        } => to_binary(&query_unbonding_info(
+            deps,
+            env,
+            staker,
+            start_after,
+            limit,
+        )?),
     }
 }
 
@@ -58,11 +62,8 @@ pub fn query_state(deps: Deps, block_time: Option<u64>) -> StdResult<StateRespon
     })
 }
 
-pub fn query_staker_info(
-    deps: Deps,
-    staker: String,
-    block_time: Option<u64>,
-) -> StdResult<StakerInfoResponse> {
+pub fn query_staker_info(deps: Deps, env: Env, staker: String) -> StdResult<StakerInfoResponse> {
+    let block_time = Some(env.block.time.seconds());
     let staker_info_key = staker_info_key(&staker);
     match staker_info_storage().may_load(deps.storage, staker_info_key)? {
         Some(some_staker_info) => {
@@ -123,6 +124,7 @@ pub fn query_all_stakers(
 
 pub fn query_unbonding_info(
     deps: Deps,
+    env: Env,
     staker: String,
     start_after: Option<u64>,
     limit: Option<u32>,
@@ -143,5 +145,10 @@ pub fn query_unbonding_info(
         .map(|res| res.map(|item| item.1))
         .collect::<StdResult<Vec<_>>>()?;
 
-    Ok(UnbondingInfoResponse { unbonding_info })
+    let crr_time = env.block.time.seconds();
+
+    Ok(UnbondingInfoResponse {
+        unbonding_info,
+        crr_time,
+    })
 }
