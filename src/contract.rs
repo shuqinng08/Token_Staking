@@ -212,7 +212,7 @@ pub fn redeem(
     time: u64,
 ) -> Result<Response, ContractError> {
     let sender_addr = info.sender.to_string();
-    let time = env.block.time.seconds();
+    let crr_time = env.block.time.seconds();
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -225,7 +225,7 @@ pub fn redeem(
     }
 
     let unbonding_info = unbonding_info.unwrap();
-    if unbonding_info.time + config.lock_duration > time {
+    if unbonding_info.time + config.lock_duration > crr_time {
         return Err(ContractError::TimeRemainingForRedeem {});
     }
 

@@ -1,9 +1,9 @@
 #[cfg(test)]
 use crate::contract::{execute, instantiate};
 use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
-use crate::query::query_staker_info;
+use crate::query::{query_staker_info, query_unbonding_info};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{to_binary, BankMsg, Coin, CosmosMsg, DepsMut, Env, Uint128, WasmMsg};
+use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, Uint128, WasmMsg};
 
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -24,7 +24,7 @@ fn setup_contract(deps: DepsMut, env: Env) {
 }
 
 #[test]
-fn test_earned_and_unbond() {
+fn test_earned() {
     let mut deps = mock_dependencies();
     let mut env = mock_env();
     setup_contract(deps.as_mut(), env.clone());
@@ -33,12 +33,112 @@ fn test_earned_and_unbond() {
     let hook_msg = Cw20HookMsg::Bond {};
     let cw20_rcv_msg = Cw20ReceiveMsg {
         sender: "user1".to_string(),
-        amount: Uint128::new(100),
+        amount: Uint128::new(1000),
         msg: to_binary(&hook_msg).unwrap(),
     };
     let msg = ExecuteMsg::Receive(cw20_rcv_msg);
     execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
-    let staker_info = query_staker_info(deps.as_ref(), env.clone(), "user1".to_string()).unwrap();
-    println!("{:?}", staker_info)
+    let info = mock_info("lp_token_contract", &[]);
+    let hook_msg = Cw20HookMsg::Bond {};
+    let cw20_rcv_msg = Cw20ReceiveMsg {
+        sender: "user2".to_string(),
+        amount: Uint128::new(500),
+        msg: to_binary(&hook_msg).unwrap(),
+    };
+    let msg = ExecuteMsg::Receive(cw20_rcv_msg);
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    env.block.time = env.block.time.plus_seconds(800);
+
+    let staker1_info = query_staker_info(deps.as_ref(), env.clone(), "user1".to_string()).unwrap();
+    let staker2_info = query_staker_info(deps.as_ref(), env.clone(), "user2".to_string()).unwrap();
+
+    println!("{:?}, {:?}", staker1_info, staker2_info);
+
+    let info = mock_info("user1", &[]);
+    let msg = ExecuteMsg::Withdraw {};
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let staker1_info = query_staker_info(deps.as_ref(), env.clone(), "user1".to_string()).unwrap();
+    // let staker2_info = query_staker_info(deps.as_ref(), env.clone(), "user2".to_string()).unwrap();
+
+    println!("{:?}", staker1_info);
+
+    env.block.time = env.block.time.plus_seconds(300);
+    let info = mock_info("user1", &[]);
+    let msg = ExecuteMsg::Withdraw {};
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let staker1_info = query_staker_info(deps.as_ref(), env.clone(), "user1".to_string()).unwrap();
+    // let staker2_info = query_staker_info(deps.as_ref(), env.clone(), "user2".to_string()).unwrap();
+
+    println!("{:?}", staker1_info);
+}
+
+#[test]
+fn test_unbond() {
+    let mut deps = mock_dependencies();
+    let mut env = mock_env();
+    setup_contract(deps.as_mut(), env.clone());
+
+    let info = mock_info("lp_token_contract", &[]);
+    let hook_msg = Cw20HookMsg::Bond {};
+    let cw20_rcv_msg = Cw20ReceiveMsg {
+        sender: "user1".to_string(),
+        amount: Uint128::new(1000),
+        msg: to_binary(&hook_msg).unwrap(),
+    };
+    let msg = ExecuteMsg::Receive(cw20_rcv_msg);
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let info = mock_info("lp_token_contract", &[]);
+    let hook_msg = Cw20HookMsg::Bond {};
+    let cw20_rcv_msg = Cw20ReceiveMsg {
+        sender: "user2".to_string(),
+        amount: Uint128::new(500),
+        msg: to_binary(&hook_msg).unwrap(),
+    };
+    let msg = ExecuteMsg::Receive(cw20_rcv_msg);
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let info = mock_info("user1", &[]);
+    let msg = ExecuteMsg::Unbond {
+        amount: Uint128::new(200),
+    };
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    env.block.time = env.block.time.plus_seconds(500);
+    let info = mock_info("user1", &[]);
+    let msg = ExecuteMsg::Unbond {
+        amount: Uint128::new(300),
+    };
+    execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+    let unbonding_info =
+        query_unbonding_info(deps.as_ref(), env.clone(), "user1".to_string(), None, None).unwrap();
+    println!("unbonding_info: {:?}", unbonding_info);
+
+    env.block.time = env.block.time.plus_seconds(3700);
+
+    let info = mock_info("user1", &[]);
+    let msg = ExecuteMsg::Redeem { time: 1571797919 };
+    let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
+    assert_eq!(res.messages.len(), 1);
+    assert_eq!(
+        res.messages[0].msg,
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "lp_token_contract".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "user1".to_string(),
+                amount: Uint128::new(300)
+            })
+            .unwrap(),
+            funds: vec![]
+        })
+    );
+
+    let unbonding_info =
+        query_unbonding_info(deps.as_ref(), env.clone(), "user1".to_string(), None, None).unwrap();
+    println!("unbonding_info_after_redeem: {:?}", unbonding_info);
 }

@@ -76,7 +76,7 @@ pub fn query_staker_info(deps: Deps, env: Env, staker: String) -> StdResult<Stak
                 compute_staker_reward(&state, &mut staker_info)?;
             }
 
-            let mut total_earned = Uint128::new(0);
+            let total_earned: Uint128;
 
             let user_earned_info_key = user_earned_info_key(&staker);
             match user_earned_info_storage().may_load(deps.storage, user_earned_info_key)? {
