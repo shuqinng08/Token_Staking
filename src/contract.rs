@@ -5,6 +5,7 @@ use cosmwasm_std::{
 
 use crate::error::ContractError;
 use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg};
+use crate::query::query_all_unbonding_info;
 use crate::state::{
     staker_info_key, staker_info_storage, unbonding_info_key, unbonding_info_storage,
     user_earned_info_key, user_earned_info_storage, Config, StakerInfo, State, UnbondingInfo,
@@ -64,7 +65,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::Unbond { amount } => unbond(deps, env, info, amount),
-        ExecuteMsg::Redeem { time } => redeem(deps, env, info, time),
+        ExecuteMsg::Redeem {} => redeem(deps, env, info),
         ExecuteMsg::Withdraw {} => withdraw(deps, env, info),
         ExecuteMsg::UpdateConfig {
             distribution_schedule,
@@ -205,33 +206,28 @@ pub fn unbond(
     ]))
 }
 
-pub fn redeem(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    time: u64,
-) -> Result<Response, ContractError> {
+pub fn redeem(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     let sender_addr = info.sender.to_string();
     let crr_time = env.block.time.seconds();
 
     let config = CONFIG.load(deps.storage)?;
 
-    let unbonding_info_key = unbonding_info_key(&sender_addr, time);
+    let mut amount = Uint128::zero();
 
-    let unbonding_info =
-        unbonding_info_storage().may_load(deps.storage, unbonding_info_key.clone())?;
-    if unbonding_info.is_none() {
-        return Err(ContractError::NotSuchUnbonding {});
+    let unbonding_infos = query_all_unbonding_info(deps.as_ref(), env, sender_addr.clone())?;
+    for unbonding_info in unbonding_infos {
+        if unbonding_info.time + config.lock_duration > crr_time {
+            break;
+        } else {
+            amount += unbonding_info.amount;
+            let unbonding_info_key = unbonding_info_key(&sender_addr, unbonding_info.time);
+            unbonding_info_storage().remove(deps.storage, unbonding_info_key.clone())?;
+        }
     }
 
-    let unbonding_info = unbonding_info.unwrap();
-    if unbonding_info.time + config.lock_duration > crr_time {
-        return Err(ContractError::TimeRemainingForRedeem {});
+    if amount.is_zero() {
+        return Err(ContractError::NothingToRedeem {});
     }
-
-    let amount = unbonding_info.amount;
-
-    unbonding_info_storage().remove(deps.storage, unbonding_info_key.clone())?;
 
     Ok(Response::new()
         .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {

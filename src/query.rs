@@ -5,7 +5,7 @@ use crate::msg::{
 };
 use crate::state::{
     staker_info_key, staker_info_storage, unbonding_info_storage, user_earned_info_key,
-    user_earned_info_storage, CONFIG, STATE,
+    user_earned_info_storage, UnbondingInfo, CONFIG, STATE,
 };
 use cosmwasm_std::{entry_point, to_binary, Binary, Decimal, Deps, Env, Order, StdResult, Uint128};
 use cw_storage_plus::Bound;
@@ -151,4 +151,20 @@ pub fn query_unbonding_info(
         unbonding_info,
         crr_time,
     })
+}
+
+pub fn query_all_unbonding_info(
+    deps: Deps,
+    _env: Env,
+    staker: String,
+) -> StdResult<Vec<UnbondingInfo>> {
+    let unbonding_info = unbonding_info_storage()
+        .idx
+        .address
+        .prefix(staker.clone())
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|res| res.map(|item| item.1))
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(unbonding_info)
 }

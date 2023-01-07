@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::contract::{execute, instantiate};
 use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
-use crate::query::{query_staker_info, query_unbonding_info};
+use crate::query::{query_all_unbonding_info, query_staker_info, query_unbonding_info};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, Uint128, WasmMsg};
 
@@ -119,10 +119,15 @@ fn test_unbond() {
         query_unbonding_info(deps.as_ref(), env.clone(), "user1".to_string(), None, None).unwrap();
     println!("unbonding_info: {:?}", unbonding_info);
 
-    env.block.time = env.block.time.plus_seconds(3700);
+    let all_unbonding_info =
+        query_all_unbonding_info(deps.as_ref(), env.clone(), "user1".to_string()).unwrap();
+
+    println!("all_unbonding_info: {:?}", all_unbonding_info);
+
+    env.block.time = env.block.time.plus_seconds(3650);
 
     let info = mock_info("user1", &[]);
-    let msg = ExecuteMsg::Redeem { time: 1571797919 };
+    let msg = ExecuteMsg::Redeem {};
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
     assert_eq!(res.messages.len(), 1);
     assert_eq!(
@@ -131,7 +136,7 @@ fn test_unbond() {
             contract_addr: "lp_token_contract".to_string(),
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "user1".to_string(),
-                amount: Uint128::new(300)
+                amount: Uint128::new(500)
             })
             .unwrap(),
             funds: vec![]

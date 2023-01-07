@@ -12,8 +12,8 @@ pub enum ContractError {
     #[error("This user did not take part in staking")]
     NotStaked {},
 
-    #[error("There is no such bonding info")]
-    NotSuchUnbonding {},
+    #[error("There is nothing to redeem")]
+    NothingToRedeem {},
 
     #[error("You used wrong token contract")]
     WrongContractError {},

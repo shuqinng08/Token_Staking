@@ -23,9 +23,7 @@ pub enum ExecuteMsg {
     },
     /// Withdraw pending rewards
     Withdraw {},
-    Redeem {
-        time: u64,
-    },
+    Redeem {},
     /// Owner operation to stop distribution on current staking contract
     /// and send remaining tokens to the new contract
     MigrateStaking {
